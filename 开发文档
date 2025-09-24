@@ -1,0 +1,676 @@
+# AI图像工作室 - 项目开发文档 (PRD)
+
+## 1. 项目概述
+
+### 1.1 项目介绍
+AI图像工作室是一个专业的AI图像生成平台，提供9个专门的图像生成工具，通过智能提示词优化系统，让用户以简单的交互方式获得专业级的AI图像生成效果。
+
+### 1.2 项目目标
+- 降低AI图像生成的使用门槛
+- 提供专业级的图像生成质量
+- 通过模块化设计满足不同创作需求
+- 建立完整的用户作品管理体系
+
+### 1.3 核心价值
+- **简化操作**：用户只需简单选择，系统自动优化提示词
+- **专业效果**：每个模块都有预设的最优参数组合
+- **模块化设计**：9个专门工具，各司其职
+- **智能优化**：用户输入自动转换为专业API参数
+
+## 2. 功能模块设计
+
+### 2.1 功能模块列表
+
+| 模块名称 | 功能描述 | 核心特性 |
+|---------|---------|---------|
+| 生成手办 | 将角色描述转换为手办模型 | 风格选择、质量调节、参考图上传 |
+| 单图生成多姿势 | 基于参考图生成多种姿势 | 角色一致性、姿势多样性、风格统一 |
+| 草图控制 | 草图转精美插画 | 线稿识别、风格转换、精度控制 |
+| 多图合成 | 多张图片智能合成 | 图片融合、场景构建、光线统一 |
+| 自媒体封面设计 | 专业封面图生成 | 文字排版、视觉冲击、尺寸适配 |
+| 局部物品替换 | 图片中特定物品替换 | 区域识别、无缝替换、风格匹配 |
+| 9宫格证件照 | 标准证件照批量生成 | 规格标准、批量处理、背景替换 |
+| 多种色彩生成 | 同一图像多色彩版本 | 色彩方案、保持结构、风格一致 |
+| 人像合影 | 多人合影智能生成 | 人像融合、光线统一、表情自然 |
+
+### 2.2 通用功能组件
+
+#### 2.2.1 智能提示词系统
+```javascript
+// 提示词优化器核心配置
+const PromptOptimizer = {
+  // 风格映射库
+  styleLibrary: {
+    "写实风格": ["photorealistic", "ultra detailed", "professional photography"],
+    "动漫风格": ["anime style", "manga", "japanese animation"],
+    "油画风格": ["oil painting", "classic art", "renaissance style"],
+    // ... 更多风格
+  },
+
+  // 质量增强词库
+  qualityEnhancers: {
+    basic: ["good quality"],
+    high: ["high quality", "detailed", "sharp"],
+    ultra: ["masterpiece", "best quality", "ultra detailed", "8k"]
+  },
+
+  // 技术参数映射
+  technicalParams: {
+    speed: { steps: 20, cfg: 7.0 },
+    balanced: { steps: 30, cfg: 7.5 },
+    quality: { steps: 50, cfg: 8.5 }
+  }
+};
+```
+
+#### 2.2.2 文件处理系统
+- 支持格式：PNG, JPG, JPEG, WebP
+- 最大文件大小：10MB
+- 自动压缩和优化
+- 云存储集成
+
+## 3. 技术架构设计
+
+### 3.1 前端技术栈
+- **框架**: Vue.js 3.x / React 18.x
+- **UI组件**: Element Plus / Ant Design
+- **状态管理**: Pinia / Redux Toolkit
+- **路由**: Vue Router / React Router
+- **HTTP客户端**: Axios
+- **文件上传**: Vue-Upload-Component
+- **图像处理**: Fabric.js (画布功能)
+
+### 3.2 后端技术栈
+- **运行时**: Node.js 18+
+- **框架**: Express.js / Fastify
+- **数据库**: MongoDB + Redis
+- **文件存储**: AWS S3 / 阿里云OSS
+- **任务队列**: Bull.js
+- **API文档**: Swagger
+
+### 3.3 系统架构图
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   前端应用   │───→│   API网关    │───→│  NanoBanana │
+│             │    │             │    │     API     │
+└─────────────┘    └─────────────┘    └─────────────┘
+                           │
+                   ┌───────▼───────┐
+                   │   业务服务层   │
+                   │  提示词优化器  │
+                   │  文件处理器    │
+                   │  用户管理      │
+                   └───────────────┘
+                           │
+                   ┌───────▼───────┐
+                   │   数据存储层   │
+                   │  MongoDB      │
+                   │  Redis缓存    │
+                   │  文件存储     │
+                   └───────────────┘
+```
+
+## 4. 接口设计规范
+
+### 4.1 统一响应格式
+```typescript
+interface APIResponse<T> {
+  code: number;          // 状态码：200成功，400客户端错误，500服务器错误
+  message: string;       // 响应消息
+  data: T;              // 响应数据
+  timestamp: number;     // 时间戳
+  requestId: string;     // 请求ID，用于追踪
+}
+```
+
+### 4.2 核心API接口
+
+#### 4.2.1 图像生成API
+```typescript
+// POST /api/generate/figurine
+interface FigurineGenerateRequest {
+  description: string;           // 用户描述
+  style: string;                // 手办风格
+  quality: number;              // 生成质量 (60-100)
+  referenceImage?: string;      // 参考图片URL
+  additionalOptions?: {
+    backgroundColor?: string;
+    lighting?: string;
+    angle?: string;
+  };
+}
+
+interface GenerateResponse {
+  taskId: string;               // 任务ID
+  estimatedTime: number;        // 预计完成时间(秒)
+  images: string[];            // 生成的图片URL列表
+  usedPrompt: string;          // 实际使用的提示词
+  parameters: object;          // 生成参数
+}
+```
+
+#### 4.2.2 多姿势生成API
+```typescript
+// POST /api/generate/multi-pose
+interface MultiPoseRequest {
+  referenceImage: string;       // 参考人物图片
+  characterFeatures: string;    // 角色特征描述
+  poseCount: number;           // 生成姿势数量
+  poseTypes: string[];         // 姿势类型
+  maintainStyle: boolean;      // 保持风格一致性
+}
+```
+
+#### 4.2.3 任务状态查询API
+```typescript
+// GET /api/task/{taskId}/status
+interface TaskStatus {
+  taskId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;            // 进度百分比
+  result?: GenerateResponse;   // 完成后的结果
+  error?: string;             // 错误信息
+}
+```
+
+### 4.3 NanoBanana API集成
+
+#### 4.3.1 提示词转换服务
+```javascript
+class PromptTransformService {
+  constructor() {
+    this.nanoBananaClient = new NanoBananaClient(API_KEY);
+  }
+
+  // 将用户友好的参数转换为NanoBanana API参数
+  async transformToNanoBananaParams(userInput, moduleType) {
+    const promptBuilder = new PromptBuilder(moduleType);
+  
+    // 1. 构建基础提示词
+    const basePrompt = promptBuilder.buildBasePrompt(userInput.description);
+  
+    // 2. 添加风格关键词
+    const styleKeywords = this.getStyleKeywords(userInput.style, moduleType);
+  
+    // 3. 添加质量增强词
+    const qualityKeywords = this.getQualityKeywords(userInput.quality);
+  
+    // 4. 组合最终提示词
+    const finalPrompt = [basePrompt, ...styleKeywords, ...qualityKeywords].join(', ');
+  
+    // 5. 构建NanoBanana API参数
+    return {
+      prompt: finalPrompt,
+      negative_prompt: this.buildNegativePrompt(userInput.style),
+      num_inference_steps: this.getStepsFromQuality(userInput.quality),
+      guidance_scale: this.getCfgFromQuality(userInput.quality),
+      width: userInput.width || 512,
+      height: userInput.height || 512,
+      num_images_per_prompt: userInput.count || 1
+    };
+  }
+
+  // 调用NanoBanana API
+  async callNanoBananaAPI(params) {
+    try {
+      const response = await this.nanoBananaClient.generateImage(params);
+      return response;
+    } catch (error) {
+      throw new Error(`NanoBanana API调用失败: ${error.message}`);
+    }
+  }
+}
+```
+
+## 5. 数据库设计
+
+### 5.1 用户表 (users)
+```javascript
+{
+  _id: ObjectId,
+  username: String,
+  email: String,
+  avatar: String,
+  subscription: {
+    type: String,    // free, pro, premium
+    expiresAt: Date,
+    credits: Number  // 剩余积分
+  },
+  preferences: {
+    defaultQuality: Number,
+    favoriteStyles: [String],
+    language: String
+  },
+  createdAt: Date,
+  lastLoginAt: Date
+}
+```
+
+### 5.2 生成任务表 (generation_tasks)
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  moduleType: String,        // figurine, multi_pose, sketch_control, etc.
+  status: String,           // pending, processing, completed, failed
+  progress: Number,         // 0-100
+
+  // 用户输入的原始参数
+  userInput: {
+    description: String,
+    style: String,
+    quality: Number,
+    additionalOptions: Object
+  },
+
+  // 转换后的API参数
+  apiParams: {
+    prompt: String,
+    negative_prompt: String,
+    num_inference_steps: Number,
+    guidance_scale: Number
+  },
+
+  // 生成结果
+  result: {
+    images: [String],       // 图片URL数组
+    metadata: Object        // 生成元数据
+  },
+
+  // 计费信息
+  billing: {
+    credits_used: Number,
+    processing_time: Number  // 秒
+  },
+
+  createdAt: Date,
+  completedAt: Date,
+  error: String
+}
+```
+
+### 5.3 作品集表 (artworks)
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId,
+  taskId: ObjectId,         // 关联的生成任务
+  title: String,
+  description: String,
+  moduleType: String,
+  imageUrl: String,
+  thumbnailUrl: String,
+
+  // 生成参数（用于再次生成）
+  generationParams: Object,
+
+  // 互动数据
+  likes: Number,
+  views: Number,
+  isPublic: Boolean,
+  tags: [String],
+
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## 6. 核心业务逻辑
+
+### 6.1 生成流程设计
+
+```javascript
+class ImageGenerationService {
+  async generateImage(userId, moduleType, userInput) {
+    // 1. 参数验证和预处理
+    const validatedInput = await this.validateInput(userInput, moduleType);
+  
+    // 2. 检查用户权限和积分
+    await this.checkUserLimits(userId, moduleType);
+  
+    // 3. 创建生成任务
+    const task = await this.createTask(userId, moduleType, validatedInput);
+  
+    // 4. 提示词转换
+    const apiParams = await this.transformPrompt(validatedInput, moduleType);
+  
+    // 5. 调用NanoBanana API
+    const nanoBananaResponse = await this.callNanoBananaAPI(apiParams);
+  
+    // 6. 处理生成结果
+    const processedResult = await this.processResult(nanoBananaResponse);
+  
+    // 7. 保存结果和扣除积分
+    await this.saveResultAndBilling(task._id, processedResult, userId);
+  
+    // 8. 创建作品记录
+    await this.createArtwork(userId, task._id, processedResult);
+  
+    return {
+      taskId: task._id,
+      images: processedResult.images,
+      usedPrompt: apiParams.prompt
+    };
+  }
+
+  // 提示词智能转换
+  async transformPrompt(userInput, moduleType) {
+    const transformer = new PromptTransformer();
+  
+    switch (moduleType) {
+      case 'figurine':
+        return transformer.buildFigurinePrompt(userInput);
+      case 'multi_pose':
+        return transformer.buildMultiPosePrompt(userInput);
+      case 'sketch_control':
+        return transformer.buildSketchPrompt(userInput);
+      // ... 其他模块
+      default:
+        throw new Error(`未支持的模块类型: ${moduleType}`);
+    }
+  }
+}
+```
+
+### 6.2 模块特定逻辑
+
+#### 6.2.1 手办生成模块
+```javascript
+class FigurineGenerator {
+  buildPrompt(userInput) {
+    const styleMap = {
+      'Q版可爱': ['chibi style', 'cute', 'kawaii', 'super deformed'],
+      '写实精细': ['realistic figurine', 'detailed sculpting', 'collectible grade'],
+      '日系手办': ['anime figure', 'japanese figurine', 'PVC figure'],
+      '粘土风格': ['clay figure', 'polymer clay', 'handmade texture']
+    };
+  
+    const qualityMap = {
+      60: ['good quality'],
+      80: ['high quality', 'extremely detailed', 'masterpiece'],
+      100: ['legendary quality', 'perfect', 'flawless']
+    };
+  
+    const promptParts = [
+      `figurine of ${userInput.description}`,
+      ...styleMap[userInput.style],
+      ...qualityMap[userInput.quality],
+      'professional photography', 'studio lighting'
+    ];
+  
+    return {
+      prompt: promptParts.join(', '),
+      negative_prompt: 'blurry, low quality, distorted, ugly',
+      num_inference_steps: this.getStepsFromQuality(userInput.quality),
+      guidance_scale: this.getCfgFromQuality(userInput.quality)
+    };
+  }
+}
+```
+
+#### 6.2.2 多姿势生成模块
+```javascript
+class MultiPoseGenerator {
+  async buildPrompt(userInput) {
+    // 如果有参考图，先进行图像分析
+    let characterAnalysis = '';
+    if (userInput.referenceImage) {
+      characterAnalysis = await this.analyzeCharacter(userInput.referenceImage);
+    }
+  
+    const poseDescriptions = this.generatePoseDescriptions(userInput.poseTypes);
+  
+    const promptParts = [
+      'character sheet',
+      'multiple poses',
+      'different angles',
+      characterAnalysis || userInput.characterFeatures,
+      ...poseDescriptions,
+      'consistent character design',
+      'reference sheet style'
+    ];
+  
+    return {
+      prompt: promptParts.join(', '),
+      negative_prompt: 'inconsistent character, different person, blurry',
+      num_inference_steps: 35,
+      guidance_scale: 8.0,
+      num_images_per_prompt: userInput.poseCount
+    };
+  }
+}
+```
+
+## 7. 安全性设计
+
+### 7.1 API安全
+- JWT Token认证
+- API请求频率限制
+- 输入参数严格验证
+- SQL注入防护
+- XSS攻击防护
+
+### 7.2 内容安全
+```javascript
+class ContentSafetyService {
+  async validatePrompt(prompt) {
+    const blockedKeywords = [
+      'nsfw', 'nude', 'sexual', 'violence',
+      // ... 更多敏感词汇
+    ];
+  
+    for (const keyword of blockedKeywords) {
+      if (prompt.toLowerCase().includes(keyword)) {
+        throw new Error('输入内容包含不当信息，请修改后重试');
+      }
+    }
+  
+    return true;
+  }
+
+  async validateImage(imageUrl) {
+    // 调用内容审核API
+    const moderationResult = await this.contentModerationAPI.check(imageUrl);
+  
+    if (!moderationResult.safe) {
+      throw new Error('生成内容不符合社区规范');
+    }
+  
+    return true;
+  }
+}
+```
+
+### 7.3 用户权限控制
+```javascript
+class PermissionService {
+  async checkGenerationPermission(userId, moduleType) {
+    const user = await User.findById(userId);
+  
+    // 检查订阅状态
+    if (user.subscription.type === 'free' && this.isPremiumModule(moduleType)) {
+      throw new Error('该功能需要订阅Premium会员');
+    }
+  
+    // 检查积分余额
+    const requiredCredits = this.getRequiredCredits(moduleType);
+    if (user.subscription.credits < requiredCredits) {
+      throw new Error('积分不足，请充值或升级会员');
+    }
+  
+    // 检查日生成限制
+    const todayGenerations = await this.getTodayGenerations(userId);
+    const dailyLimit = this.getDailyLimit(user.subscription.type);
+  
+    if (todayGenerations >= dailyLimit) {
+      throw new Error('今日生成次数已达上限');
+    }
+  
+    return true;
+  }
+}
+```
+
+## 8. 性能优化策略
+
+### 8.1 前端优化
+- 组件懒加载
+- 图片懒加载和压缩
+- CDN加速
+- 浏览器缓存策略
+- PWA支持
+
+### 8.2 后端优化
+```javascript
+// Redis缓存策略
+class CacheService {
+  // 缓存用户配置
+  async cacheUserPreferences(userId, preferences) {
+    await redis.setex(`user:${userId}:prefs`, 3600, JSON.stringify(preferences));
+  }
+
+  // 缓存常用提示词模板
+  async cachePromptTemplate(moduleType, style, template) {
+    const key = `prompt:${moduleType}:${style}`;
+    await redis.setex(key, 86400, JSON.stringify(template));
+  }
+
+  // 缓存生成结果
+  async cacheGenerationResult(params, result) {
+    const paramsHash = crypto.createHash('md5').update(JSON.stringify(params)).digest('hex');
+    await redis.setex(`gen:${paramsHash}`, 7200, JSON.stringify(result));
+  }
+}
+```
+
+### 8.3 数据库优化
+```javascript
+// MongoDB索引设计
+db.generation_tasks.createIndex({ userId: 1, createdAt: -1 });
+db.generation_tasks.createIndex({ status: 1, createdAt: 1 });
+db.artworks.createIndex({ userId: 1, isPublic: 1, createdAt: -1 });
+db.artworks.createIndex({ tags: 1, isPublic: 1, likes: -1 });
+```
+
+## 9. 监控和日志
+
+### 9.1 关键指标监控
+- API响应时间
+- 生成成功率
+- 用户活跃度
+- 积分消耗统计
+- 错误率监控
+
+### 9.2 日志记录策略
+```javascript
+class LoggingService {
+  logGeneration(userId, moduleType, params, result) {
+    logger.info('Image Generation', {
+      userId,
+      moduleType,
+      userPrompt: params.userInput.description,
+      finalPrompt: params.apiParams.prompt,
+      success: result.success,
+      processingTime: result.processingTime,
+      creditsUsed: result.creditsUsed,
+      timestamp: new Date()
+    });
+  }
+
+  logError(error, context) {
+    logger.error('System Error', {
+      error: error.message,
+      stack: error.stack,
+      context,
+      timestamp: new Date()
+    });
+  }
+}
+```
+
+## 10. 部署和运维
+
+### 10.1 部署架构
+```yaml
+# Docker Compose 配置
+version: '3.8'
+services:
+  web:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://api:4000
+
+  api:
+    build: ./backend
+    ports:
+      - "4000:4000"
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/ai_studio
+      - REDIS_URL=redis://redis:6379
+      - NANOBANANA_API_KEY=${NANOBANANA_API_KEY}
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:5.0
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:6.2
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongodb_data:
+  redis_data:
+```
+
+### 10.2 CI/CD流程
+```yaml
+# GitHub Actions 配置
+name: Deploy AI Studio
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: |
+          docker-compose -f docker-compose.prod.yml up -d
+          docker system prune -f
+```
+
+## 11. 开发计划
+
+### 11.1 MVP阶段 (4周)
+- Week 1: 基础架构搭建，用户系统
+- Week 2: 手办生成模块，提示词优化系统
+- Week 3: 多姿势生成，草图控制模块
+- Week 4: 用户界面优化，基础测试
+
+### 11.2 Beta阶段 (6周)
+- Week 5-6: 剩余6个功能模块开发
+- Week 7-8: 作品管理系统，社区功能
+- Week 9-10: 性能优化，安全加固
+- Week 11: 内测和bug修复
+
+### 11.3 正式发布 (2周)
+- Week 12: 最终测试和文档完善
+- Week 13: 正式发布和运营准备
+
+这个项目文档涵盖了从技术架构到业务逻辑的完整设计，核心思路是通过智能提示词转换系统，将用户友好的界面操作转换为专业的NanoBanana API调用，实现简单操作获得专业效果的目标。
