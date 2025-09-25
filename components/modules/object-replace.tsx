@@ -130,8 +130,8 @@ export function ObjectReplace() {
                 </div>
               ) : (
                 <img
-                  src={(images && images[0]) || "/object-replacement-in-room.jpg"}
-                  alt="Replacement result"
+                  src={encodeURI((images && images[0]) || "/object-replacement-in-room.jpg")}
+                  alt="物体替换结果"
                   className="w-full h-full object-cover"
                 />
               )}

@@ -101,7 +101,7 @@ export function ImageFusion() {
                 {images.map((image) => (
                   <div key={image.id} className="relative aspect-square bg-card rounded-lg overflow-hidden border border-border">
                     <img
-                      src={image.imageUrl}
+                      src={encodeURI(image.imageUrl)}
                       alt={image.name}
                       className="w-full h-full object-cover"
                     />
@@ -235,8 +235,8 @@ export function ImageFusion() {
                 </div>
               ) : resultImages && resultImages.length > 0 ? (
                 <img
-                  src={resultImages[0]}
-                  alt="Fusion result"
+                  src={encodeURI(resultImages[0])}
+                  alt="融合结果"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -256,7 +256,7 @@ export function ImageFusion() {
                 {resultImages.slice(1).map((image, index) => (
                   <div key={index} className="aspect-square bg-card rounded-lg overflow-hidden border border-border">
                     <img
-                      src={image}
+                      src={encodeURI(image)}
                       alt={`融合变体 ${index + 2}`}
                       className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
                     />

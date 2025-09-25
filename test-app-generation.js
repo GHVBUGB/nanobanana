@@ -85,3 +85,4 @@ async function testAppGeneration() {
 
 // 运行测试
 testAppGeneration();
+

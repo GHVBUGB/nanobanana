@@ -69,8 +69,9 @@ async function testNanoBananaModel() {
       );
       console.log('🖼️ 所有图片URLs:', imageUrls);
       
-      // 模式4: 查找任何URL
-      console.log('🔗 所有URLs:', allUrls);
+      // 模式4: 查找任何URL（清理尾随括号）
+      const cleanUrls = allUrls.map(url => url.replace(/\)+$/, ''));
+      console.log('🔗 所有URLs:', cleanUrls);
     }
     
   } catch (error) {

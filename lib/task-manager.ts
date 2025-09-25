@@ -52,14 +52,17 @@ export const taskMap = new Map<string, TaskEntry>()
 // 任务管理器工具函数
 export const TaskManager = {
   // 创建任务
-  createTask(taskId: string, initialLogs?: string[]): void {
+  createTask(taskId: string, initialData: Partial<TaskEntry>): void {
     const task: TaskEntry = {
       status: 'pending',
       progress: 0,
-      logs: initialLogs || []
+      logs: [], // 确保初始化为空数组
+      ...initialData
     }
+    
+    console.log(`[TaskManager] 创建任务 ${taskId}:`, task)
     saveTask(taskId, task)
-    taskMap.set(taskId, task) // 同时保存到内存以提高性能
+    taskMap.set(taskId, task)
   },
 
   // 更新任务状态
@@ -90,7 +93,10 @@ export const TaskManager = {
   addLog(taskId: string, log: string): void {
     const existing = this.getTask(taskId)
     if (existing) {
-      existing.logs = existing.logs || []
+      // 确保logs是数组
+      if (!existing.logs || !Array.isArray(existing.logs)) {
+        existing.logs = []
+      }
       existing.logs.push(`[${new Date().toISOString()}] ${log}`)
       saveTask(taskId, existing)
       taskMap.set(taskId, existing)
@@ -98,13 +104,58 @@ export const TaskManager = {
   },
 
   // 完成任务
-  completeTask(taskId: string, result: GenerateResponse): void {
+  async completeTask(taskId: string, result: GenerateResponse): Promise<void> {
+    console.log(`[TaskManager] Task completed ${taskId}:`, {
+      imageCount: result.images.length,
+      images: result.images
+    })
+    
     this.updateTask(taskId, {
       status: 'completed',
       progress: 100,
       result
     })
-    this.addLog(taskId, `任务完成 - 生成 ${result.images.length} 张图片`)
+    this.addLog(taskId, `Task completed - Generated ${result.images.length} images`)
+    
+    // 同步保存生成的图片到Supabase数据库
+    try {
+      console.log('🔄 Starting to sync images to database...')
+      await this.saveGeneratedImagesAsync(taskId, result)
+      console.log('✅ Images synced to database successfully')
+    } catch (error) {
+      console.error('❌ Failed to sync images to database:', error)
+      // 即使数据库保存失败，任务仍然标记为完成，因为图片生成本身是成功的
+    }
+    
+    // 验证任务是否正确保存
+    const savedTask = this.getTask(taskId)
+    console.log(`[TaskManager] Verify task save status:`, {
+      taskId,
+      status: savedTask?.status,
+      progress: savedTask?.progress,
+      hasResult: !!savedTask?.result,
+      resultImageCount: savedTask?.result?.images?.length
+    })
+  },
+
+  // 异步保存生成的图片到数据库
+  async saveGeneratedImagesAsync(taskId: string, result: GenerateResponse): Promise<void> {
+    try {
+      // 动态导入以避免循环依赖
+      const { saveGeneratedImages } = await import('./save-generated-images')
+      
+      console.log(`[TaskManager] Starting to save generated images to database - Task: ${taskId}`)
+      this.addLog(taskId, 'Starting to save images to cloud database...')
+      
+      // 直接传递图片数组、提示词和任务ID
+      await saveGeneratedImages(result.images || [], result.usedPrompt || '', taskId)
+      
+      console.log(`[TaskManager] Image saving process completed - Task: ${taskId}`)
+      
+    } catch (error) {
+      console.error(`[TaskManager] Failed to save images to database - Task: ${taskId}`, error)
+      this.addLog(taskId, `Failed to save images to database: ${error instanceof Error ? error.message : String(error)}`)
+    }
   },
 
   // 失败任务
@@ -114,6 +165,6 @@ export const TaskManager = {
       progress: 100,
       error
     })
-    this.addLog(taskId, `错误: ${error}`)
+    this.addLog(taskId, `Error: ${error}`)
   }
 }

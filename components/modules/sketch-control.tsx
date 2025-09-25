@@ -150,8 +150,8 @@ export function SketchControl() {
                 </div>
               ) : (
                 <img
-                  src={(images && images[0]) || "/architectural-sketch-to-render.jpg"}
-                  alt="Rendered result"
+                  src={encodeURI((images && images[0]) || "/architectural-sketch-to-render.jpg")}
+                  alt="草图控制结果"
                   className="w-full h-full object-cover"
                 />
               )}

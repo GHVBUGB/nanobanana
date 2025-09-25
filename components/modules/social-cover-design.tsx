@@ -153,8 +153,8 @@ export function SocialCoverDesign() {
                 </div>
               ) : (
                 <img
-                  src={(images && images[0]) || "/youtube-thumbnail-design.jpg"}
-                  alt="Cover design preview"
+                  src={encodeURI((images && images[0]) || "/youtube-thumbnail-design.jpg")}
+                  alt="封面设计结果"
                   className="w-full h-full object-cover"
                 />
               )}

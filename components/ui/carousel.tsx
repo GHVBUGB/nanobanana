@@ -132,7 +132,10 @@ function Carousel({
   )
 }
 
-function CarouselContent({ className, ...props }: React.ComponentProps<'div'>) {
+const CarouselContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<'div'>
+>(({ className, ...props }, ref) => {
   const { carouselRef, orientation } = useCarousel()
 
   return (
@@ -142,6 +145,7 @@ function CarouselContent({ className, ...props }: React.ComponentProps<'div'>) {
       data-slot="carousel-content"
     >
       <div
+        ref={ref}
         className={cn(
           'flex',
           orientation === 'horizontal' ? '-ml-4' : '-mt-4 flex-col',
@@ -151,13 +155,18 @@ function CarouselContent({ className, ...props }: React.ComponentProps<'div'>) {
       />
     </div>
   )
-}
+})
+CarouselContent.displayName = "CarouselContent"
 
-function CarouselItem({ className, ...props }: React.ComponentProps<'div'>) {
+const CarouselItem = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<'div'>
+>(({ className, ...props }, ref) => {
   const { orientation } = useCarousel()
 
   return (
     <div
+      ref={ref}
       role="group"
       aria-roledescription="slide"
       data-slot="carousel-item"
@@ -169,7 +178,8 @@ function CarouselItem({ className, ...props }: React.ComponentProps<'div'>) {
       {...props}
     />
   )
-}
+})
+CarouselItem.displayName = "CarouselItem"
 
 function CarouselPrevious({
   className,

@@ -107,7 +107,7 @@ export function GroupPhoto() {
                 {people.map((person) => (
                   <div key={person.id} className="relative aspect-[3/4] bg-card rounded-lg overflow-hidden border border-border">
                     <img
-                      src={person.imageUrl}
+                      src={encodeURI(person.imageUrl)}
                       alt={person.name}
                       className="w-full h-full object-cover"
                     />
@@ -252,7 +252,7 @@ export function GroupPhoto() {
                 </div>
               ) : images && images.length > 0 ? (
                 <img
-                  src={images[0]}
+                  src={encodeURI(images[0])}
                   alt="Group photo result"
                   className="w-full h-full object-cover"
                 />
@@ -273,7 +273,7 @@ export function GroupPhoto() {
                 {images.slice(1).map((image, index) => (
                   <div key={index} className="aspect-[4/3] bg-card rounded-lg overflow-hidden border border-border">
                     <img
-                      src={image}
+                      src={encodeURI(image)}
                       alt={`合影变体 ${index + 2}`}
                       className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
                     />

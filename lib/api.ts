@@ -1,18 +1,33 @@
 import { APIResponse, GenerateResponse, TaskStatus } from '@/lib/types'
 
 async function http<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers || {}),
-    },
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || `HTTP ${res.status}`)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30秒超时
+  
+  try {
+    const res = await fetch(input, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers || {}),
+      },
+    })
+    
+    clearTimeout(timeoutId)
+    
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(text || `HTTP ${res.status}`)
+    }
+    return (await res.json()) as T
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('请求超时，请重试')
+    }
+    throw error
   }
-  return (await res.json()) as T
 }
 
 // 将图片文件转换为base64格式
@@ -33,7 +48,19 @@ async function fileToBase64(file: File): Promise<string> {
 // 将图片URL转换为base64格式
 async function urlToBase64(url: string): Promise<string> {
   try {
-    const response = await fetch(url)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15秒超时
+    
+    const response = await fetch(url, {
+      signal: controller.signal
+    })
+    
+    clearTimeout(timeoutId)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+    
     const blob = await response.blob()
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -46,6 +73,9 @@ async function urlToBase64(url: string): Promise<string> {
       reader.readAsDataURL(blob)
     })
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('图片加载超时，请重试')
+    }
     throw new Error('无法转换图片URL为base64格式')
   }
 }
@@ -61,10 +91,29 @@ export const ApiClient = {
         
         // 检查是否是blob URL
         if (payload.referenceImage.startsWith('blob:')) {
-          const response = await fetch(payload.referenceImage)
-          const blob = await response.blob()
-          const file = new File([blob], 'image.jpg', { type: blob.type })
-          base64Image = await fileToBase64(file)
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+          
+          try {
+            const response = await fetch(payload.referenceImage, {
+              signal: controller.signal
+            })
+            clearTimeout(timeoutId)
+            
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`)
+            }
+            
+            const blob = await response.blob()
+            const file = new File([blob], 'image.jpg', { type: blob.type })
+            base64Image = await fileToBase64(file)
+          } catch (error) {
+            clearTimeout(timeoutId)
+            if (error instanceof Error && error.name === 'AbortError') {
+              throw new Error('图片加载超时，请重试')
+            }
+            throw error
+          }
         } 
         // 检查是否是http URL
         else if (payload.referenceImage.startsWith('http')) {
@@ -93,10 +142,29 @@ export const ApiClient = {
         const processedImages = await Promise.all(
           payload.referenceImages.map(async (imageUrl: string) => {
             if (imageUrl.startsWith('blob:')) {
-              const response = await fetch(imageUrl)
-              const blob = await response.blob()
-              const file = new File([blob], 'image.jpg', { type: blob.type })
-              return await fileToBase64(file)
+              const controller = new AbortController()
+              const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
+              
+              try {
+                const response = await fetch(imageUrl, {
+                  signal: controller.signal
+                })
+                clearTimeout(timeoutId)
+                
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`)
+                }
+                
+                const blob = await response.blob()
+                const file = new File([blob], 'image.jpg', { type: blob.type })
+                return await fileToBase64(file)
+              } catch (error) {
+                clearTimeout(timeoutId)
+                if (error instanceof Error && error.name === 'AbortError') {
+                  throw new Error('图片加载超时，请重试')
+                }
+                throw error
+              }
             } else if (imageUrl.startsWith('http')) {
               return await urlToBase64(imageUrl)
             } else if (imageUrl.includes('base64,')) {

@@ -27,88 +27,101 @@ export function useGeneration(moduleType: string) {
   useEffect(() => clear, [])
 
   const start = useCallback(async (payload: unknown) => {
+    console.log('🚀 开始新的生成任务')
+    
+    // 重置所有状态
     clear()
     setLoading(true)
     setError(null)
     setImages([])
     setProgress(0)
     setLogs([])
+    setTaskId(null)
+    
     try {
-      console.log('🚀 开始生成任务:', { moduleType, payload })
+      // 调用生成API
       const res = await ApiClient.generate(moduleType, payload)
       const data = res.data
-      console.log('📋 任务创建成功:', data)
+      
+      console.log('✅ API调用成功:', data)
       setTaskId(data.taskId)
-      // Poll
+      setProgress(5) // 显示初始进度
+      
+      // 开始轮询任务状态
       poller.current = setInterval(async () => {
         try {
           if (!data.taskId) return
-          const statusRes = await ApiClient.getTaskStatus(data.taskId)
-          const s = statusRes.data
-          console.log('📊 任务状态更新:', s)
           
-          // 强制更新进度，确保显示最新状态
-          setProgress(s.progress)
+          const statusRes = await ApiClient.getTaskStatus(data.taskId)
+          const status = statusRes.data
+          
+          console.log('📊 状态更新:', status)
+          
+          // 更新进度
+          if (typeof status.progress === 'number') {
+            setProgress(status.progress)
+          }
           
           // 更新日志
-          if (s.logs && Array.isArray(s.logs)) {
-            setLogs(s.logs)
+          if (status.logs && Array.isArray(status.logs)) {
+            setLogs(status.logs)
           }
           
-          // 检查任务完成状态
-          if (s.status === 'completed') {
-            console.log('✅ 任务完成，图片URLs:', s.result?.images)
-            console.log('🔍 完整result对象:', s.result)
-            
-            // 立即更新进度到100%
+          // 检查完成状态
+          if (status.status === 'completed') {
+            console.log('🎉 任务完成!')
             setProgress(100)
             
-            // 处理结果图片
-            if (s.result && s.result.images) {
-              const resultImages = s.result.images || []
-              console.log('📸 设置images状态前:', resultImages)
-              console.log('📸 resultImages类型:', typeof resultImages, Array.isArray(resultImages))
-              console.log('📸 resultImages长度:', resultImages.length)
+            // 处理生成的图片
+            if (status.result?.images && Array.isArray(status.result.images)) {
+              const imageUrls = status.result.images.filter(url => 
+                url && typeof url === 'string' && url.trim() !== ''
+              )
               
-              if (Array.isArray(resultImages) && resultImages.length > 0) {
-                console.log('📸 正在设置images状态:', resultImages)
-                setImages(resultImages)
-                console.log('📸 images状态已设置')
-              } else {
-                console.warn('⚠️ resultImages为空或不是数组:', resultImages)
-                // 即使没有图片也要停止loading
-              }
+              console.log('📸 获得图片:', imageUrls)
+              setImages(imageUrls)
+            } else {
+              console.warn('⚠️ 没有获得图片结果')
+              setError('没有生成图片')
             }
             
-            // 停止loading和轮询
             setLoading(false)
             clear()
-            return // 立即退出轮询
+            return
           }
           
-          if (s.status === 'failed') {
-            console.log('❌ 任务失败:', s.error)
-            setError(s.error || '生成失败')
+          // 检查失败状态
+          if (status.status === 'failed') {
+            console.error('❌ 任务失败:', status.error)
+            setError(status.error || '生成失败')
             setLoading(false)
             clear()
-            return // 立即退出轮询
+            return
           }
-        } catch (e: any) {
-          console.error('🔄 轮询状态失败:', e)
-          setError(e?.message || '网络错误')
-          setLoading(false)
-          clear()
+          
+        } catch (pollError) {
+          console.error('轮询错误:', pollError)
+          // 继续轮询，不要因为单次失败就停止
         }
-      }, 1000)
-    } catch (e: any) {
-      console.error('🚫 启动任务失败:', e)
-      setError(e?.message || '请求失败')
+      }, 2000)
+      
+    } catch (error) {
+      console.error('❌ 启动任务失败:', error)
+      setError(error instanceof Error ? error.message : '启动失败')
       setLoading(false)
-      clear()
     }
   }, [moduleType])
 
-  return { taskId, progress, images, loading, error, logs, start, clearLogs }
+  return {
+    taskId,
+    progress,
+    images,
+    loading,
+    error,
+    logs,
+    start,
+    clearLogs
+  }
 }
 
 

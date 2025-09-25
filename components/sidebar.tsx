@@ -2,8 +2,9 @@
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Sparkles, RotateCcw, PenTool, Layers, FileImage, Replace, Grid3X3, Users, Camera, Sun, Moon } from "lucide-react"
+import { Sparkles, RotateCcw, PenTool, Layers, FileImage, Replace, Grid3X3, Users, Camera, Sun, Moon, ImageIcon, Edit, LogIn } from "lucide-react"
 import { useTheme } from "next-themes"
+import { UserMenu } from "@/components/auth/user-menu"
 
 interface SidebarProps {
   activeModule: string | null
@@ -28,20 +29,27 @@ export function Sidebar({ activeModule, onModuleSelect }: SidebarProps) {
   return (
     <div className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-sidebar-border flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-sidebar-foreground">AI 图像工作室</h1>
-          <p className="text-sm text-muted-foreground mt-1">专业图像生成平台</p>
+      <div className="p-6 border-b border-sidebar-border">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div>
+            <h1 className="text-xl font-bold text-sidebar-foreground">AI 图像工作室</h1>
+            <p className="text-sm text-muted-foreground mt-1">专业图像生成平台</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="切换主题"
+            className="shrink-0"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="切换主题"
-          className="shrink-0"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
-          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+        
+        {/* User Menu */}
+        <div className="flex justify-end">
+          <UserMenu />
+        </div>
       </div>
 
       {/* Navigation */}
@@ -67,6 +75,26 @@ export function Sidebar({ activeModule, onModuleSelect }: SidebarProps) {
             </Button>
           )
         })}
+        
+        <a
+            href="/community"
+            className="block w-full text-left px-4 py-3 rounded-lg transition-colors hover:bg-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <Users className="w-5 h-5" />
+              <span className="font-medium">社区</span>
+            </div>
+          </a>
+          
+          <a
+            href="/auth"
+            className="block w-full text-left px-4 py-3 rounded-lg transition-colors hover:bg-gray-100"
+          >
+            <div className="flex items-center space-x-3">
+              <LogIn className="w-5 h-5" />
+              <span className="font-medium">登录/注册</span>
+            </div>
+          </a>
       </nav>
 
       {/* Footer */}

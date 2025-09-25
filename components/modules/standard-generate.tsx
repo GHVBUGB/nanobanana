@@ -17,6 +17,15 @@ export function StandardGenerate() {
   const [quality, setQuality] = useState("standard")
   const { start, progress, images, loading } = useGeneration('standard')
 
+  // 添加调试日志来跟踪状态变化
+  console.log('🔍 StandardGenerate 渲染状态:', {
+    progress,
+    imagesLength: images?.length || 0,
+    loading,
+    hasImages: images && images.length > 0,
+    firstImageUrl: images?.[0]
+  })
+
   const handleUpload = async () => {
     try {
       const file = await pickSingleFile("image/*")
@@ -95,7 +104,7 @@ export function StandardGenerate() {
               <div className="relative">
                 <div className="aspect-square bg-card rounded-lg overflow-hidden border border-border">
                   <img
-                    src={referenceImage}
+                    src={encodeURI(referenceImage)}
                     alt="参考图片"
                     className="w-full h-full object-cover"
                   />
@@ -231,6 +240,9 @@ export function StandardGenerate() {
                   </div>
                   <div className="text-xs text-blue-600 p-2 bg-white/80">
                     images数组长度: {images.length}
+                  </div>
+                  <div className="text-xs text-purple-600 p-2 bg-white/80">
+                    loading状态: {String(loading)}
                   </div>
                 </div>
               ) : (

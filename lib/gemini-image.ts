@@ -15,6 +15,7 @@ export interface ImageGenerationOptions {
   outputPath?: string;
   width?: number;
   height?: number;
+  count?: number;
 }
 
 // 图像编辑选项接口

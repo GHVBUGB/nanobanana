@@ -1,7 +1,7 @@
 import { FigurineGenerateRequest, MultiPoseRequest, ModuleType } from '@/lib/types'
 
 export class PromptTransformService {
-  buildFigurineParams(userInput: FigurineGenerateRequest) {
+  buildFigurineParams(userInput: FigurineGenerateRequest): Record<string, any> {
     const styleMap: Record<string, string[]> = {
       anime: ['anime figure', 'japanese figurine', 'PVC figure'],
       realistic: ['realistic figurine', 'detailed sculpting', 'collectible grade'],
@@ -35,7 +35,7 @@ export class PromptTransformService {
     }
   }
 
-  buildMultiPoseParams(userInput: MultiPoseRequest) {
+  buildMultiPoseParams(userInput: MultiPoseRequest): Record<string, any> {
     const poseDescriptions = (userInput.poseTypes || []).map((p) => `${p} pose`)
     const base = [
       'character sheet',
@@ -68,7 +68,7 @@ export class PromptTransformService {
     return 7.0
   }
 
-  buildSketchControlParams(userInput: { description?: string; controlStrength?: number }) {
+  buildSketchControlParams(userInput: { description?: string; controlStrength?: number }): Record<string, any> {
     const s = Math.max(10, Math.min(100, userInput.controlStrength || 70))
     return {
       prompt: [
@@ -82,7 +82,7 @@ export class PromptTransformService {
     }
   }
 
-  buildImageFusionParams(userInput: { description?: string; fusionStrength?: number }) {
+  buildImageFusionParams(userInput: { description?: string; fusionStrength?: number }): Record<string, any> {
     const f = Math.max(10, Math.min(100, userInput.fusionStrength || 60))
     return {
       prompt: [
@@ -96,7 +96,7 @@ export class PromptTransformService {
     }
   }
 
-  buildObjectReplaceParams(userInput: { description?: string }) {
+  buildObjectReplaceParams(userInput: { description?: string }): Record<string, any> {
     return {
       prompt: ['replace selected object with', userInput.description || 'target object', 'seamless integration'].join(', '),
       negative_prompt: 'halo, mismatch lighting, wrong perspective',
@@ -105,7 +105,7 @@ export class PromptTransformService {
     }
   }
 
-  buildIdPhotosParams(userInput: { size?: string; background?: string }) {
+  buildIdPhotosParams(userInput: { size?: string; background?: string }): Record<string, any> {
     return {
       prompt: [
         'generate ID photo grid',
@@ -119,7 +119,7 @@ export class PromptTransformService {
     }
   }
 
-  buildGroupPhotoParams(userInput: { description?: string }) {
+  buildGroupPhotoParams(userInput: { description?: string }): Record<string, any> {
     return {
       prompt: ['composite group photo', userInput.description || '', 'consistent lighting and scale'].join(', '),
       negative_prompt: 'mismatched proportions, duplicate faces',
@@ -128,7 +128,7 @@ export class PromptTransformService {
     }
   }
 
-  buildMultiCameraParams(userInput: { description?: string; angles?: string[] }) {
+  buildMultiCameraParams(userInput: { description?: string; angles?: string[] }): Record<string, any> {
     const a = (userInput.angles || []).join(' | ')
     return {
       prompt: ['multi-angle render', userInput.description || '', a && `angles: ${a}`].filter(Boolean).join(', '),
@@ -138,7 +138,7 @@ export class PromptTransformService {
     }
   }
 
-  buildSocialCoverParams(userInput: { platform?: string; title?: string; subtitle?: string; style?: string }) {
+  buildSocialCoverParams(userInput: { platform?: string; title?: string; subtitle?: string; style?: string }): Record<string, any> {
     const platformSize: Record<string, string> = {
       youtube: '1280x720',
       instagram: '1080x1080',
@@ -162,12 +162,69 @@ export class PromptTransformService {
     }
   }
 
-  buildStandardParams(userInput: { description?: string; style?: string; count?: number; referenceImage?: string }) {
+  buildStandardParams(userInput: { description?: string; style?: string; count?: number; referenceImage?: string }): Record<string, any> {
+    // 翻译中文style
+    const translateStyle = (style: string) => {
+      const styleTranslations: Record<string, string> = {
+        '卡通风格': 'cartoon style',
+        '动漫风格': 'anime style',
+        '写实风格': 'realistic style',
+        '油画风格': 'oil painting style',
+        '水彩风格': 'watercolor style',
+        '素描风格': 'sketch style',
+        '抽象风格': 'abstract style',
+        '现代风格': 'modern style',
+        '古典风格': 'classical style',
+        '未来风格': 'futuristic style'
+      };
+      return styleTranslations[style] || style;
+    };
+
+    // 翻译中文描述
+    const translateDescription = (description: string) => {
+      if (!description) return 'high quality image';
+      
+      const descriptionTranslations: Record<string, string> = {
+        '一只可爱的小猫咪在花园里玩耍': 'a cute kitten playing in a garden',
+        '美丽的风景画': 'beautiful landscape painting',
+        '现代城市夜景': 'modern city night view',
+        '古典建筑': 'classical architecture',
+        '抽象艺术': 'abstract art',
+        '可爱的': 'cute',
+        '美丽的': 'beautiful',
+        '漂亮的': 'pretty',
+        '小猫咪': 'kitten',
+        '小狗': 'puppy',
+        '花园': 'garden',
+        '玩耍': 'playing',
+        '风景': 'landscape',
+        '夜景': 'night view',
+        '城市': 'city',
+        '建筑': 'architecture'
+      };
+      
+      let translatedDescription = description;
+      
+      // 替换已知的中文词汇
+      for (const [chinese, english] of Object.entries(descriptionTranslations)) {
+        translatedDescription = translatedDescription.replace(new RegExp(chinese, 'g'), english);
+      }
+      
+      // 如果仍然包含中文字符，检测并提供通用翻译
+      const chineseRegex = /[\u4e00-\u9fff]/;
+      if (chineseRegex.test(translatedDescription)) {
+        console.log('⚠️ 检测到未翻译的中文描述，使用通用英文描述');
+        return 'beautiful and detailed artwork, high quality, masterpiece';
+      }
+      
+      return translatedDescription;
+    };
+
     const parts = [
-      userInput.description || 'high quality image',
-      userInput.style && `style ${userInput.style}`,
-      'balanced composition, detailed, clean lighting',
-    ].filter(Boolean)
+       translateDescription(userInput.description || ''),
+       userInput.style && `${translateStyle(userInput.style)}`,
+       'balanced composition, detailed, clean lighting',
+     ].filter(Boolean)
     
     const result = {
       prompt: parts.join(', '),

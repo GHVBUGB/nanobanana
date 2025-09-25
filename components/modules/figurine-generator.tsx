@@ -121,10 +121,10 @@ export function FigurineGenerator() {
               ) : (
                 <div className="max-w-md w-full">
                   <img
-                    src={(images && images[0]) || "/futuristic-robot-figurine.jpg"}
-                    alt="Generated figurine"
-                    className="w-full rounded-lg shadow-sm"
-                  />
+                  src={encodeURI((images && images[0]) || "/futuristic-robot-figurine.jpg")}
+                  alt="Generated figurine"
+                  className="w-full rounded-lg shadow-sm"
+                />
                 </div>
               )}
             </div>

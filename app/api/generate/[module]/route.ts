@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
-import { PromptTransformService } from '@/lib/prompt-transform'
 import { APIResponse, GenerateResponse, TaskStatus } from '@/lib/types'
-import { generateImages } from '@/lib/gemini'
-import { TaskManager, taskMap } from '@/lib/task-manager'
+import { generateImages } from '@/lib/nano-banana-api'
+import { TaskManager } from '@/lib/task-manager'
 
 // 日志记录函数
 function logWithTimestamp(taskId: string, message: string, data?: any) {
@@ -40,174 +39,139 @@ export async function POST(req: NextRequest, { params }: { params: { module: str
     body = {}
   }
   
-  const transformer = new PromptTransformService()
-  logWithTimestamp(taskId, '创建提示词转换服务')
+  logWithTimestamp(taskId, '开始处理生成请求')
 
-  let promptParams: Record<string, unknown> = {}
+  // 获取用户输入 - 确保正确处理中文
+  let userPrompt = body?.description || body?.prompt || '生成一张图片'
+  
+  // 修复中文编码问题
   try {
-    switch (moduleType) {
-      case 'figurine':
-        promptParams = transformer.buildFigurineParams(body)
-        break
-      case 'multi-pose':
-        promptParams = transformer.buildMultiPoseParams(body)
-        break
-      case 'sketch-control':
-        promptParams = transformer.buildSketchControlParams(body)
-        break
-      case 'image-fusion':
-        promptParams = transformer.buildImageFusionParams(body)
-        break
-      case 'object-replace':
-        promptParams = transformer.buildObjectReplaceParams(body)
-        break
-      case 'id-photos':
-        promptParams = transformer.buildIdPhotosParams(body)
-        break
-      case 'group-photo':
-        promptParams = transformer.buildGroupPhotoParams(body)
-        break
-      case 'multi-camera':
-        promptParams = transformer.buildMultiCameraParams(body)
-        break
-      case 'social-cover':
-        promptParams = transformer.buildSocialCoverParams(body)
-        break
-      case 'standard':
-        promptParams = transformer.buildStandardParams(body)
-        break
-      default:
-        promptParams = { prompt: body?.description || 'ai image', num_inference_steps: 30, guidance_scale: 7.5 }
+    if (typeof userPrompt === 'string') {
+      // 确保字符串正确编码
+      userPrompt = decodeURIComponent(escape(userPrompt))
     }
-    logWithTimestamp(taskId, '成功构建提示词参数', { 
-      prompt: promptParams['prompt'],
-      paramKeys: Object.keys(promptParams)
-    })
-  } catch (error) {
-    logWithTimestamp(taskId, '构建提示词参数失败', { error: error instanceof Error ? error.message : String(error) })
-    promptParams = { prompt: body?.description || 'ai image', num_inference_steps: 30, guidance_scale: 7.5 }
+  } catch (e) {
+    // 如果解码失败，使用原始字符串
+    console.log('📝 使用原始提示词')
+  }
+  
+  const referenceImage = body?.referenceImage
+  
+  console.log('📝 用户输入:', userPrompt)
+  console.log('📝 用户输入类型:', typeof userPrompt)
+  console.log('📝 用户输入长度:', userPrompt.length)
+  console.log('🖼️ 参考图片:', referenceImage ? '已提供' : '未提供')
+  
+  // 创建任务
+  const response: GenerateResponse = {
+    taskId,
+    estimatedTime: 5,
+    images: [],
+    usedPrompt: userPrompt,
+    parameters: {
+      prompt: userPrompt,
+      num_inference_steps: 30,
+      guidance_scale: 7.5
+    }
   }
 
-  const estimatedTime = 4 + Math.floor(Math.random() * 4)
-  const usedPrompt = String(promptParams['prompt'] || '')
-
-  logWithTimestamp(taskId, '初始化任务状态', { 
-    estimatedTime, 
-    usedPrompt: usedPrompt.substring(0, 100) + (usedPrompt.length > 100 ? '...' : '')
+  // 初始化任务状态
+  TaskManager.createTask(taskId, {
+    status: 'pending',
+    progress: 0,
+    logs: [],
+    result: response
   })
+
+  logWithTimestamp(taskId, '任务已创建', { 
+    userPrompt: userPrompt,
+    hasReferenceImage: !!referenceImage,
+    moduleType
+  })
+
+  // 启动后台生成任务
+  console.log('🚀 启动 Nano Banana API 生成任务')
   
-  TaskManager.createTask(taskId, [`任务创建 - 模块: ${moduleType}`])
-
-  // Kick off OpenRouter call in background
-  ;(async () => {
+  // 添加重试机制
+  const maxRetries = 2;
+  let retryCount = 0;
+  
+  const attemptGeneration = async (): Promise<void> => {
     try {
-      logWithTimestamp(taskId, '开始调用 Gemini API', { prompt: usedPrompt.substring(0, 100) + '...' })
+      const result = await generateImages(userPrompt, {
+        prompt: userPrompt,
+        count: 4,
+        referenceImage: referenceImage,
+        taskId: taskId
+      });
       
-      // 更新任务状态为处理中
-      TaskManager.updateTask(taskId, { status: 'processing', progress: 10 })
-      TaskManager.addLog(taskId, '开始调用 Gemini API')
-      
-      const result = await generateImages(usedPrompt, { 
-        count: promptParams['num_images_per_prompt'] as number || 4,
-        referenceImage: (promptParams as any).referenceImage
-      })
-      
-      // 添加调试日志
-      logWithTimestamp(taskId, '传递给generateImages的参数', {
-        prompt: usedPrompt,
-        count: promptParams['num_images_per_prompt'] as number || 4,
-        hasReferenceImage: !!(promptParams as any).referenceImage,
-        referenceImageType: (promptParams as any).referenceImage ? typeof (promptParams as any).referenceImage : 'undefined'
-      })
-      const urls = result.success && result.images ? result.images : []
-      
-      logWithTimestamp(taskId, 'Gemini API 调用完成', { 
-        urlCount: urls.length,
-        urls: urls.map(url => url.substring(0, 50) + '...')
-      })
-      
-      const images = urls.length > 0 ? urls.slice(0, 4) : [
-        '/placeholder.svg?height=512&width=512&text=Result+1',
-        '/placeholder.svg?height=512&width=512&text=Result+2',
-      ]
-      
-      logWithTimestamp(taskId, '最终images数组', { 
-        images,
-        imagesLength: images.length,
-        imagesType: typeof images,
-        isArray: Array.isArray(images)
-      })
-      
-      if (urls.length === 0) {
-        logWithTimestamp(taskId, '警告: Gemini 未返回图片，使用占位符图片')
-        TaskManager.addLog(taskId, '警告: Gemini 未返回图片，使用占位符')
+      if (result.success && result.images && result.images.length > 0) {
+        console.log('✅ 图片生成成功:', result.images.length, '张')
+        const finalResponse: GenerateResponse = {
+          ...response,
+          images: result.images
+        }
+        TaskManager.completeTask(taskId, finalResponse)
+      } else {
+        console.error('❌ 图片生成失败:', result.error)
+        
+        // 如果还有重试次数，进行重试
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`🔄 重试第 ${retryCount} 次...`);
+          setTimeout(attemptGeneration, 2000); // 2秒后重试
+        } else {
+          TaskManager.failTask(taskId, result.error || '生成失败')
+        }
       }
+    } catch (error) {
+      console.error('❌ 生成任务异常:', error)
       
-      const response: GenerateResponse = {
-        taskId,
-        estimatedTime,
-        images,
-        usedPrompt,
-        parameters: promptParams,
+      // 如果还有重试次数，进行重试
+      if (retryCount < maxRetries) {
+        retryCount++;
+        console.log(`🔄 重试第 ${retryCount} 次...`);
+        setTimeout(attemptGeneration, 2000); // 2秒后重试
+      } else {
+        TaskManager.failTask(taskId, error instanceof Error ? error.message : '生成异常')
       }
-      
-      logWithTimestamp(taskId, '任务完成', { 
-        imageCount: images.length,
-        finalImages: images,
-        responseObject: response
-      })
-      
-      TaskManager.completeTask(taskId, response)
-      
-      // 验证任务是否正确设置
-      const updatedEntry = TaskManager.getTask(taskId)
-      logWithTimestamp(taskId, '验证任务状态设置', {
-        updatedStatus: updatedEntry?.status,
-        updatedProgress: updatedEntry?.progress,
-        hasResult: !!updatedEntry?.result,
-        resultImages: updatedEntry?.result?.images
-      })
-    } catch (e: any) {
-      logWithTimestamp(taskId, 'Gemini 调用失败', { 
-        error: e?.message || 'Unknown error',
-        stack: e?.stack
-      })
-      
-      TaskManager.failTask(taskId, e?.message || 'Gemini 调用失败')
     }
-  })()
+  };
+  
+  // 开始生成
+  attemptGeneration();
 
-  // Progress simulator
-  let p = 10 // 从10%开始，因为任务已经创建
-  const timer = setInterval(() => {
-    const entry = TaskManager.getTask(taskId)
-    if (!entry) {
-      logWithTimestamp(taskId, '进度更新器: 任务不存在，停止进度更新')
-      clearInterval(timer)
-      return
-    }
-    if (entry.status === 'completed' || entry.status === 'failed') {
-      logWithTimestamp(taskId, `进度更新器: 任务已${entry.status === 'completed' ? '完成' : '失败'}，停止进度更新`)
-      clearInterval(timer)
+  // 启动进度模拟器 - 改进版本
+  let progress = 10
+  const progressTimer = setInterval(() => {
+    const task = TaskManager.getTask(taskId)
+    if (!task || task.status === 'completed' || task.status === 'failed') {
+      clearInterval(progressTimer)
       return
     }
     
-    // 增加进度，但不超过95%
-    p = Math.min(95, p + 10)
-    logWithTimestamp(taskId, `进度更新: ${p}%`)
-    TaskManager.updateTask(taskId, { status: 'processing', progress: p })
-    TaskManager.addLog(taskId, `进度更新: ${p}%`)
-  }, 800)
+    // 更智能的进度增长
+    if (progress < 30) {
+      progress += Math.random() * 8 + 5  // 初期快速增长 5-13%
+    } else if (progress < 70) {
+      progress += Math.random() * 5 + 3  // 中期稳定增长 3-8%
+    } else if (progress < 90) {
+      progress += Math.random() * 3 + 1  // 后期缓慢增长 1-4%
+    } else {
+      progress += Math.random() * 2      // 接近完成时很慢 0-2%
+    }
+    
+    progress = Math.min(95, progress) // 最多到95%，等待真实完成
+    
+    TaskManager.updateTask(taskId, { 
+      status: 'processing', 
+      progress: Math.round(progress) 
+    })
+  }, 1500) // 每1.5秒更新一次
 
   logWithTimestamp(taskId, '返回初始响应给客户端')
   
-  return ok<GenerateResponse>({
-    taskId,
-    estimatedTime,
-    images: [],
-    usedPrompt,
-    parameters: promptParams,
-  })
+  return ok<GenerateResponse>(response)
 }
 
 // 添加任务状态查询
